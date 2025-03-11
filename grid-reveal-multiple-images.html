@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Reveal Hidden Picture Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #4a2c8f;
+        }
+
+        .game-container {
+            position: relative;
+            margin: 20px auto;
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .image-container {
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #333;
+            width: auto;
+            height: 500px;
+        }
+
+        .hidden-image {
+            display: block;
+            max-width: 100%;
+            height: 100%;
+        }
+
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            z-index: 10;
+        }
+
+        .grid-cell {
+            background-color: #4a2c8f;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.5s;
+        }
+
+        .grid-cell:hover {
+            background-color: #6a4cbf;
+        }
+
+        .grid-cell.revealed {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .stats {
+            margin: 20px 0;
+            font-size: 1.2em;
+        }
+
+        .message {
+            height: 30px;
+            color: #2c5e8f;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4a2c8f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        button:hover {
+            background-color: #6a4cbf;
+        }
+
+        .difficulty-selector {
+            margin: 20px 0;
+        }
+
+        .difficulty-selector label {
+            margin-right: 10px;
+        }
+
+        .win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4a2c8f;
+            display: none;
+        }
+
+        .win-screen.show {
+            display: flex;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .navigation button {
+            margin: 0 5px;
+        }
+
+        .image-counter {
+            margin: 0 15px;
+            font-weight: bold;
+        }
+
+        .number-preview {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .number-preview.active {
+            background-color: #d0d0ff;
+            border-color: #4a2c8f;
+        }
+
+        .number-preview.completed {
+            background-color: #d0ffd0;
+            border-color: #2c8f2c;
+        }
+
+        .image-previews {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Hidden Picture Game</h1>
+
+
+    <div class="difficulty-selector">
+        <label>Difficulty:</label>
+        <input type="radio" id="easy" name="difficulty" value="easy" checked>
+        <label for="easy">Easy (5×5)</label>
+        <input type="radio" id="medium" name="difficulty" value="medium">
+        <label for="medium">Medium (8×8)</label>
+        <input type="radio" id="hard" name="difficulty" value="hard">
+        <label for="hard">Hard (10×10)</label>
+    </div>
+
+
+
+    <div class="stats">
+        Squares Revealed: <span id="revealed-count">0</span> / <span id="total-squares">25</span>
+    </div>
+
+    <div class="navigation">
+        <button id="prev-img">← Previous</button>
+        <div class="image-counter">Image <span id="current-img-num">1</span> of <span id="total-img-num">8</span></div>
+        <button id="next-img">Next →</button>
+    </div>
+
+    <div class="image-previews" id="image-previews">
+        <!-- Number previews will be added here -->
+    </div>
+
+    <div class="game-container">
+        <div class="image-container" id="image-container">
+            <img src="./image1.jpg" alt="Hidden image" class="hidden-image" id="hidden-image">
+            <div class="grid-overlay" id="grid-overlay"></div>
+            <div class="win-screen" id="win-screen">
+                <p>Congratulations!</p>
+                <p>You revealed the entire picture!</p>
+                <button id="next-puzzle-btn">Next Puzzle</button>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <button id="reveal-btn">Reveal One Square</button>
+        <button id="reset-btn">Reset Current Image</button>
+        <button id="show-all-btn">Show Full Picture</button>
+    </div>
+
+    <script>
+        // Game variables
+        const gridSizes = {
+            easy: 5,
+            medium: 8,
+            hard: 10
+        };
+
+        // Image collection - in a real game, replace these with your actual image URLs
+        const images = [
+            "./image1.jpg",
+            "./image2.jpg",
+            "./image3.jpg",
+            "./image4.jpg",
+            "./image5.jpg",
+            "./image6.jpg",
+            "./image7.jpg",
+            "./image8.jpg",
+            "./image9.png",
+            "./image10.jpg",
+
+        ];
+
+        let currentGridSize = 5;
+        let totalSquares = currentGridSize * currentGridSize;
+        let revealedSquares = 0;
+        let hintsRemaining = 3;
+        let currentImageIndex = 0;
+
+        // Game progress tracking
+        const imageProgress = Array(images.length).fill(0);
+        const imageCompleted = Array(images.length).fill(false);
+
+        // DOM elements
+        const imageContainer = document.getElementById('image-container');
+        const hiddenImage = document.getElementById('hidden-image');
+        const gridOverlay = document.getElementById('grid-overlay');
+        const revealedCountEl = document.getElementById('revealed-count');
+        const totalSquaresEl = document.getElementById('total-squares');
+
+        const winScreen = document.getElementById('win-screen');
+        const revealBtn = document.getElementById('reveal-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const showAllBtn = document.getElementById('show-all-btn');
+        const difficultyRadios = document.querySelectorAll('input[name="difficulty"]');
+        const prevImgBtn = document.getElementById('prev-img');
+        const nextImgBtn = document.getElementById('next-img');
+        const nextPuzzleBtn = document.getElementById('next-puzzle-btn');
+        const currentImgNumEl = document.getElementById('current-img-num');
+        const totalImgNumEl = document.getElementById('total-img-num');
+        const imagePreviews = document.getElementById('image-previews');
+
+        // Initialize game
+        function initializeGame() {
+            // Set total image count
+            totalImgNumEl.textContent = images.length;
+
+            // Create number previews
+            createNumberPreviews();
+
+            // Load first image
+            loadImage(0);
+        }
+
+        // Create number previews
+        function createNumberPreviews() {
+            imagePreviews.innerHTML = '';
+
+            images.forEach((image, index) => {
+                const preview = document.createElement('div');
+                preview.className = `number-preview ${index === 0 ? 'active' : ''}`;
+                preview.textContent = index + 1;
+
+                preview.addEventListener('click', () => {
+                    loadImage(index);
+                });
+
+                imagePreviews.appendChild(preview);
+            });
+        }
+
+        // Update number preview active states
+        function updateNumberPreviews() {
+            const previews = document.querySelectorAll('.number-preview');
+            previews.forEach((preview, index) => {
+                // Remove all classes first
+                preview.classList.remove('active', 'completed');
+
+                // Add active class if this is the current image
+                if (index === currentImageIndex) {
+                    preview.classList.add('active');
+                }
+
+                // Add completed class if this image is completed
+                if (imageCompleted[index]) {
+                    preview.classList.add('completed');
+                }
+            });
+        }
+
+        // Load an image
+        function loadImage(index) {
+            // Save current progress
+            if (currentImageIndex >= 0) {
+                imageProgress[currentImageIndex] = revealedSquares;
+            }
+
+            // Update index
+            currentImageIndex = index;
+            currentImgNumEl.textContent = index + 1;
+
+            // Load image
+            hiddenImage.src = images[index];
+
+            // Reset or restore progress for this image
+            resetImage(false);
+
+            // Update number highlighting
+            updateNumberPreviews();
+
+            // Update navigation buttons
+            prevImgBtn.disabled = index === 0;
+            nextImgBtn.disabled = index === images.length - 1;
+        }
+
+        // Reset or restore the current image
+        function resetImage(fullReset = true) {
+            // Hide win screen
+            winScreen.classList.remove('show');
+
+            // Reset hints
+            hintsRemaining = 3;
+            revealBtn.disabled = false;
+            revealBtn.textContent = `Reveal One Square (${hintsRemaining})`;
+
+
+
+            // Set image size based on container
+            const containerWidth = imageContainer.clientWidth;
+            const containerHeight = Math.round(containerWidth * 0.67); // 3:2 aspect ratio
+
+
+            // Create grid
+            createGrid(currentGridSize);
+
+            if (fullReset) {
+                // Full reset - start from zero
+                revealedSquares = 0;
+                imageProgress[currentImageIndex] = 0;
+                imageCompleted[currentImageIndex] = false;
+                updateNumberPreviews();
+            } else {
+                // Restore previous progress
+                revealedSquares = imageProgress[currentImageIndex];
+
+                // Reveal cells up to the saved progress
+                const cells = document.querySelectorAll('.grid-cell');
+                for (let i = 0; i < revealedSquares; i++) {
+                    if (cells[i]) {
+                        cells[i].classList.add('revealed');
+                    }
+                }
+
+                // If this image was completed, show the completion state
+                if (imageCompleted[currentImageIndex]) {
+                    showAllCells(false); // Don't trigger the win screen again
+                }
+            }
+
+        }
+
+        // Create grid overlay
+        function createGrid(size) {
+            // Clear existing grid
+            gridOverlay.innerHTML = '';
+
+            // Set grid size
+            gridOverlay.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            gridOverlay.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+
+            // Create cells
+            for (let i = 0; i < size * size; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+
+                cell.addEventListener('click', () => {
+                    if (!cell.classList.contains('revealed')) {
+                        revealCell(cell);
+                    }
+                });
+
+                gridOverlay.appendChild(cell);
+            }
+
+            // Update total squares
+            totalSquares = size * size;
+            totalSquaresEl.textContent = totalSquares;
+        }
+
+        // Reveal a cell
+        function revealCell(cell) {
+            cell.classList.add('revealed');
+            revealedSquares++;
+
+
+            // Update progress for current image
+            imageProgress[currentImageIndex] = revealedSquares;
+
+            // Check if image is complete
+            if (revealedSquares === totalSquares) {
+                gameComplete();
+            }
+        }
+
+        // Random reveal (for hint button)
+        function randomReveal() {
+            if (hintsRemaining <= 0) return;
+
+            const unrevealedCells = Array.from(document.querySelectorAll('.grid-cell:not(.revealed)'));
+
+            if (unrevealedCells.length > 0) {
+                const randomCell = unrevealedCells[Math.floor(Math.random() * unrevealedCells.length)];
+                revealCell(randomCell);
+
+                hintsRemaining--;
+                revealBtn.textContent = `Reveal One Square (${hintsRemaining})`;
+
+                if (hintsRemaining <= 0) {
+                    revealBtn.disabled = true;
+                }
+            }
+        }
+
+
+
+        // Game complete
+        function gameComplete() {
+
+            winScreen.classList.add('show');
+
+            // Mark this image as completed
+            imageCompleted[currentImageIndex] = true;
+            updateNumberPreviews();
+
+            // Check if all images are completed
+            const allCompleted = imageCompleted.every(status => status === true);
+
+        }
+
+        // Show all cells (reveal entire picture)
+        function showAllCells(showWinScreen = true) {
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.add('revealed');
+            });
+
+            revealedSquares = totalSquares;
+            imageProgress[currentImageIndex] = revealedSquares;
+            imageCompleted[currentImageIndex] = true;
+
+            updateNumberPreviews();
+
+            if (showWinScreen) {
+                gameComplete();
+            }
+        }
+
+        // Change difficulty
+        function changeDifficulty() {
+            const selectedDifficulty = document.querySelector('input[name="difficulty"]:checked').value;
+            currentGridSize = gridSizes[selectedDifficulty];
+
+            // Reset progress for all images
+            imageProgress.fill(0);
+            imageCompleted.fill(false);
+
+            // Reload current image with new grid size
+            loadImage(currentImageIndex);
+        }
+
+        // Go to previous image
+        function previousImage() {
+            if (currentImageIndex > 0) {
+                loadImage(currentImageIndex - 1);
+            }
+        }
+
+        // Go to next image
+        function nextImage() {
+            if (currentImageIndex < images.length - 1) {
+                loadImage(currentImageIndex + 1);
+            }
+        }
+
+        // Go to next puzzle after completion
+        function nextPuzzle() {
+            if (currentImageIndex < images.length - 1) {
+                loadImage(currentImageIndex + 1);
+            } else {
+                // If on last image, just reset
+                winScreen.classList.remove('show');
+            }
+        }
+
+        // Event listeners
+        revealBtn.addEventListener('click', randomReveal);
+        resetBtn.addEventListener('click', () => resetImage(true));
+        showAllBtn.addEventListener('click', () => showAllCells(true));
+
+        difficultyRadios.forEach(radio => {
+            radio.addEventListener('change', changeDifficulty);
+        });
+
+        prevImgBtn.addEventListener('click', previousImage);
+        nextImgBtn.addEventListener('click', nextImage);
+        nextPuzzleBtn.addEventListener('click', nextPuzzle);
+
+        // Responsive behavior
+        window.addEventListener('resize', () => {
+            const containerWidth = imageContainer.clientWidth;
+            const containerHeight = Math.round(containerWidth * 0.67);
+
+        });
+
+        // Initialize the game when page loads
+        window.addEventListener('load', initializeGame);
+    </script>
+</body>
+
+</html>
